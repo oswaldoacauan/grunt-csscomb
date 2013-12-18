@@ -13,15 +13,23 @@ module.exports = function (grunt) {
     var Comb = require('csscomb'),
       defaultConfig = require('../node_modules/csscomb/.csscomb.json');
 
-    // Get config file from task's options:
-    var config = grunt.task.current.options().sortOrder;
+    // Check if .csscomb.json exist in the project root
+    var rootFile = '.csscomb.json';
+    if(grunt.file.exists(rootFile)) {
+      grunt.log.ok('Using "' + rootFile + '"" as default config file...');
+      var rootConfig = grunt.file.readJSON(rootFile);
+    }
 
-    // Check if config file is set and exists. If not, use default one:
-    if (config && grunt.file.exists(config)) {
-      grunt.log.ok('Using custom config file "' + config + '"...');
-      config = grunt.file.readJSON(config);
-    } else {
-      config = defaultConfig;
+    // Get config file from task's options and merge with default
+    var config = grunt.task.current.options(rootConfig || defaultConfig);
+
+    // Add backward compatibility
+    if (typeof config.sortOrder === 'string' &&
+        grunt.file.exists(config.sortOrder)) {
+      grunt.log.ok('Using custom sortOrder config file "' + config.sortOrder + '"...');
+      var sortOrder = grunt.file.readJSON(config.sortOrder)["sort-order"];
+      config["sort-order"] = sortOrder;
+      delete config.sortOrder;
     }
 
     this.files.forEach(function (f) {
@@ -45,7 +53,8 @@ module.exports = function (grunt) {
 
         // Comb it:
         grunt.log.ok('Sorting file "' + src + '"...');
-        var combed = comb.processString(css);
+        var syntax = src.split('.').pop();
+        var combed = comb.processString(css, syntax);
         grunt.file.write(f.dest, combed);
       });
     });
